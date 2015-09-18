@@ -1,0 +1,33 @@
+moh:
+    image: docker.io/avoxi/asterisk-moh:latest
+    read_only: true
+    container_name: asterisk-moh
+
+sounds-en:
+    image: docker.io/avoxi/asterisk-sounds-en:latest
+    read_only: true
+    container_name: asterisk-sounds-en
+
+spool:
+    image: centos:7
+    container_name: asterisk-spool
+    volumes:
+        - /var/spool/asterisk
+    command: su -c echo "Asterisk Spool"
+
+asterisk:
+    image: docker.io/avoxi/certified-asterisk:latest
+    container_name: ast01
+    hostname: ast01
+    extra_hosts:
+        - "ast01:127.0.0.1"
+    net: "none"
+    ports:
+        - "5060"
+        - "10000-20000"
+    volumes:
+        - ./etc-asterisk:/etc/asterisk
+    volumes_from:
+        - sounds-en
+        - moh
+        - spool
