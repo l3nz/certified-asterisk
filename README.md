@@ -4,20 +4,59 @@ Docker image for Certified Asterisk 13 (unofficial package). Maintained by AVOXI
 ## Running Asterisk
 The following sets of commands will show you how to use the Asterisk image along with some other supporting volume containers to get going.
 
-### Starting up the data volumes
+***
+
+### Using Docker Compose
+You can skip over starting everything up manually by using [Docker Compose](https://docs.docker.com/compose/) but there are still a few gotchas that we've been running into.
+
+To start, you require the development version of Docker Compose, slated to become version 1.5.0. Without that you don't get access to port ranges in the `docker-compose.yml` file, and a couple other changes to starting Docker volume containers in detach mode.
+
+With that being said, you can approximate the start up that is documented in the manual start up documentation below, which might be good enough for your local environment.
+
+#### Start up the data volumes
+Unfortunately you can't do a simple `docker-compose up` because you won't really get access to the Asterisk console, which means you can't run Asterisk CLI commands, and you can't drop to the shell to figure out what your IP address is once you start up the container (if using DHCP and pipework as described later in the document, you might be able to look at the reservation cache on your DHCP service).
+
+First we start up the volumes for Asterisk:
+
+```sh
+docker-compose up -d spool moh sounds-en
+```
+
+A this point you have all the volumes spun up in detached mode.
+
+#### Starting Asterisk
+Next step is to start up Asterisk. The `docker-compose.yml` file will understand what volumes to attach to on start up, so this is pretty straight forward.
+
+> **NOTE**: this is one of the gotchas I ran into with Compose. You can't start Asterisk in a detached state, or you never get the console to come up correctly. This also means you can't use `^P^Q` to detach. You might just be better off to start up Asterisk via the manual process, but if you're just playing around, maybe this is less of an issue.
+
+Start up Asterisk with the following command:
+
+```sh
+docker-compose run -d --service-ports asterisk
+```
+
+This will result in an Asterisk prompt, and you'll be able to run a `docker attach` at this point as well.
+
+Next, skip down to the section on **Network Considerations** and running `pipework`.
+
+***
+
+### Starting Containers Manually
+
+#### Starting up the data volumes
 
 First we'll start up a few Docker Volume Containers (DVC). These are pre-built volume containers that host the sound prompts and music on hold files for Asterisk.
 
 > The sound prompts in the example are English prompts, both core and extras, with formats `G.729`, `SLIN`, and `WAV`.
 > Files in the MOH volume are same formats, using the opsound files from Digium.
 
-#### Start Docker Volume Containers
+##### Start Docker Volume Containers
 ```sh
 docker run -d --name="asterisk-sounds-en" docker.io/avoxi/asterisk-sounds-en:latest
 docker run -d --name="asterisk-moh" docker.io/avoxi/asterisk-moh:latest
 ```
 
-#### Create volume containers for Asterisk data
+##### Create volume containers for Asterisk data
 ```sh
 docker run -v /var/spool/asterisk \
            --name="asterisk-spool" centos:7 \
@@ -25,7 +64,7 @@ docker run -v /var/spool/asterisk \
 
 ```
 
-### Starting Asterisk and Mounting Volumes
+#### Starting Asterisk and Mounting Volumes
 ```sh
 docker run -ti \
            --volumes-from=asterisk-sounds-en:ro \
@@ -34,6 +73,8 @@ docker run -ti \
            -v `pwd`/etc-asterisk:/etc/asterisk \
            docker.io/avoxi/certified-asterisk:latest
 ```
+
+***
 
 ## Networking Considerations
 There are various methods of setting up networking with Docker, but for our purposes, it is easier to have the container to get a real IP address from our DHCP server, and then expose the ports.
